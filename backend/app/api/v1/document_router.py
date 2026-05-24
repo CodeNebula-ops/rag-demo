@@ -69,6 +69,7 @@ async def upload_document(
 
 
 async def _process_document(doc: Document, file_path: str, filename: str, session: AsyncSession):
+    import gc
     from app.services.ingestion_service import _extract_text
     from app.core.text_preprocessor import normalize_text
     from app.services.chunking_service import chunk_document
@@ -81,12 +82,17 @@ async def _process_document(doc: Document, file_path: str, filename: str, sessio
     ext = Path(filename).suffix.lower()
     raw_text = _extract_text(file_path, ext)
     cleaned_text = normalize_text(raw_text)
+    del raw_text
+    gc.collect()
 
     if not cleaned_text or len(cleaned_text.strip()) < 10:
         raise ValueError("No text content extracted from document")
 
     logger.info("ingestion_chunking", doc_id=str(doc.id), text_len=len(cleaned_text))
     chunks = chunk_document(cleaned_text, doc.title)
+    del cleaned_text
+    gc.collect()
+
     if not chunks:
         raise ValueError("No chunks generated from document")
 
@@ -119,7 +125,12 @@ async def _process_document(doc: Document, file_path: str, filename: str, sessio
             language=chunk_data.get("language", "en"),
         ))
 
+    del chunks
+    gc.collect()
+
     point_ids = upsert_vectors(embeddings.tolist(), payloads)
+    del embeddings
+    gc.collect()
 
     for i, db_chunk in enumerate(db_chunks):
         db_chunk.qdrant_point_id = point_ids[i]

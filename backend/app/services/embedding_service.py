@@ -1,3 +1,5 @@
+import gc
+
 import numpy as np
 import structlog
 
@@ -23,10 +25,15 @@ def _normalize(arr: np.ndarray) -> np.ndarray:
     return arr / norms
 
 
-async def embed_texts(texts: list[str], batch_size: int = 32) -> np.ndarray:
+async def embed_texts(texts: list[str], batch_size: int = 8) -> np.ndarray:
     model = _get_model()
-    embeddings = list(model.embed(texts, batch_size=batch_size))
-    arr = np.array(embeddings, dtype=np.float32)
+    all_embeddings = []
+    for i in range(0, len(texts), batch_size):
+        batch = texts[i:i + batch_size]
+        batch_embs = list(model.embed(batch, batch_size=batch_size))
+        all_embeddings.extend(batch_embs)
+        gc.collect()
+    arr = np.array(all_embeddings, dtype=np.float32)
     return _normalize(arr)
 
 
