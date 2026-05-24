@@ -6,7 +6,7 @@ export function useChat() {
   const [currentSession, setCurrentSession] = useState(null);
   const [messages, setMessages] = useState([]);
   const [isStreaming, setIsStreaming] = useState(false);
-  const abortRef = useRef(null);
+  const sessionRef = useRef(null);
 
   const loadSessions = useCallback(async () => {
     const { data } = await chatApi.listSessions();
@@ -16,6 +16,7 @@ export function useChat() {
   const createSession = useCallback(async () => {
     const { data } = await chatApi.createSession(null);
     setCurrentSession(data);
+    sessionRef.current = data;
     setMessages([]);
     await loadSessions();
     return data;
@@ -23,12 +24,23 @@ export function useChat() {
 
   const selectSession = useCallback(async (session) => {
     setCurrentSession(session);
+    sessionRef.current = session;
     const { data } = await chatApi.getHistory(session.id);
     setMessages(data);
   }, []);
 
+  const deleteSession = useCallback(async (sessionId) => {
+    await chatApi.deleteSession(sessionId);
+    if (sessionRef.current?.id === sessionId) {
+      setCurrentSession(null);
+      sessionRef.current = null;
+      setMessages([]);
+    }
+    await loadSessions();
+  }, [loadSessions]);
+
   const sendMessage = useCallback(async (query, sessionOverride) => {
-    const session = sessionOverride || currentSession;
+    const session = sessionOverride || sessionRef.current;
     if (!session || isStreaming) return;
 
     const userMsg = {
@@ -74,7 +86,6 @@ export function useChat() {
 
         for (const line of lines) {
           if (line.startsWith('event:')) {
-            const eventType = line.slice(6).trim();
             continue;
           }
           if (!line.startsWith('data:')) continue;
@@ -84,7 +95,6 @@ export function useChat() {
 
           try {
             const data = JSON.parse(jsonStr);
-            const eventLine = lines.find((l) => l.startsWith('event:'));
 
             if (data.token !== undefined) {
               setMessages((prev) => {
@@ -173,8 +183,9 @@ export function useChat() {
       });
     } finally {
       setIsStreaming(false);
+      await loadSessions();
     }
-  }, [currentSession, isStreaming]);
+  }, [isStreaming, loadSessions]);
 
   const submitFeedback = useCallback(async (messageId, feedback) => {
     await chatApi.submitFeedback(messageId, feedback);
@@ -191,6 +202,7 @@ export function useChat() {
     loadSessions,
     createSession,
     selectSession,
+    deleteSession,
     sendMessage,
     submitFeedback,
   };

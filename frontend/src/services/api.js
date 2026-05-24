@@ -10,6 +10,7 @@ const api = axios.create({
 export const chatApi = {
   createSession: (title) => api.post('/chat/sessions', { title }),
   listSessions: () => api.get('/chat/sessions'),
+  deleteSession: (sessionId) => api.delete(`/chat/sessions/${sessionId}`),
   getHistory: (sessionId) => api.get(`/chat/sessions/${sessionId}/history`),
   submitFeedback: (messageId, feedback) =>
     api.post(`/chat/messages/${messageId}/feedback`, { feedback }),

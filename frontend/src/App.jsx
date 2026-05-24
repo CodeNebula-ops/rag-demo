@@ -49,6 +49,7 @@ export default function App() {
         currentSession={chat.currentSession}
         onSelectSession={handleSelectSession}
         onNewSession={chat.createSession}
+        onDeleteSession={chat.deleteSession}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />

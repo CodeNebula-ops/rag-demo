@@ -93,6 +93,12 @@ async def _run_ingestion(doc_id: str, file_path: str, filename: str, file_size: 
                 )
                 await session.flush()
 
+            if not Path(file_path).exists():
+                logger.error("file_not_found", doc_id=doc_id, path=file_path)
+                doc.status = "failed"
+                await session.commit()
+                return
+
             ext = Path(filename).suffix.lower()
             raw_text = _extract_text(file_path, ext)
             cleaned_text = normalize_text(raw_text)

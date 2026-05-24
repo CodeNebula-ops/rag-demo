@@ -71,6 +71,19 @@ async def send_message(
     return EventSourceResponse(event_generator())
 
 
+@router.delete("/sessions/{session_id}")
+async def delete_session(
+    session_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+):
+    chat_session = await session.get(ChatSession, session_id)
+    if not chat_session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    await session.delete(chat_session)
+    await session.flush()
+    return {"status": "deleted"}
+
+
 @router.get("/sessions/{session_id}/history", response_model=list[ChatMessageResponse])
 async def get_history(
     session_id: uuid.UUID,

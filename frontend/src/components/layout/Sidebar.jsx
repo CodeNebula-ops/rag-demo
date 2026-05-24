@@ -1,4 +1,4 @@
-import { MessageSquare, FileText, BarChart3, Plus, X } from 'lucide-react';
+import { MessageSquare, FileText, BarChart3, Plus, X, Trash2 } from 'lucide-react';
 import StatusIndicator from './StatusIndicator';
 
 const navItems = [
@@ -15,6 +15,7 @@ export default function Sidebar({
   currentSession,
   onSelectSession,
   onNewSession,
+  onDeleteSession,
   isOpen,
   onClose,
 }) {
@@ -67,17 +68,27 @@ export default function Sidebar({
           </div>
           <div className="flex-1 overflow-y-auto px-2 space-y-0.5">
             {sessions.map((s) => (
-              <button
+              <div
                 key={s.id}
-                onClick={() => onSelectSession(s)}
-                className={`w-full text-left px-3 py-2 text-[13px] rounded-lg truncate transition-colors ${
+                className={`group flex items-center rounded-lg transition-colors ${
                   currentSession?.id === s.id
                     ? 'bg-white/10 text-white'
                     : 'text-gray-500 hover:bg-white/5 hover:text-gray-300'
                 }`}
               >
-                {s.title || 'New conversation'}
-              </button>
+                <button
+                  onClick={() => onSelectSession(s)}
+                  className="flex-1 text-left px-3 py-2 text-[13px] truncate"
+                >
+                  {s.title || 'New conversation'}
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDeleteSession(s.id); }}
+                  className="p-1.5 mr-1 text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
             ))}
           </div>
         </div>
