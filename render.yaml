@@ -2,7 +2,7 @@ services:
   - type: web
     name: kb-backend
     runtime: docker
-    dockerfilePath: ./backend/Dockerfile
+    dockerfilePath: Dockerfile
     dockerContext: ./backend
     envVars:
       - key: DATABASE_URL
