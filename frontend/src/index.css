@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-primary: #FAFAFA;
+  --bg-sidebar: #1A1A2E;
+  --bg-chat: #FFFFFF;
+  --bg-user-msg: #E8F4FD;
+  --bg-ai-msg: #F5F5F5;
+  --text-primary: #1A1A2E;
+  --text-secondary: #6B7280;
+  --text-sidebar: #E2E8F0;
+  --accent: #2563EB;
+  --accent-hover: #1D4ED8;
+  --success: #059669;
+  --warning: #D97706;
+  --danger: #DC2626;
+  --confidence-high: #059669;
+  --confidence-medium: #D97706;
+  --confidence-low: #DC2626;
+  --border: #E5E7EB;
+}
+
+body {
+  margin: 0;
+  font-family: 'IBM Plex Sans', sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 3px;
+}
+
+.prose pre {
+  background-color: #1E293B;
+  color: #E2E8F0;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.875rem;
+}
+
+.prose code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.875rem;
+}
