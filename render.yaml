@@ -20,9 +20,7 @@ services:
       - key: GROQ_MODEL_NAME
         value: llama-3.1-8b-instant
       - key: EMBEDDING_MODEL_NAME
-        value: sentence-transformers/all-MiniLM-L6-v2
-      - key: RERANKER_MODEL_NAME
-        value: cross-encoder/ms-marco-MiniLM-L-6-v2
+        value: BAAI/bge-small-en-v1.5
       - key: UPLOAD_DIR
         value: /app/uploads
       - key: LOG_LEVEL
