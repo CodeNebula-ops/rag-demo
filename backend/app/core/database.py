@@ -11,10 +11,13 @@ def _get_db_url() -> str:
         url = url.replace("postgres://", "postgresql+asyncpg://", 1)
     elif url.startswith("postgresql://"):
         url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    if "render.com" in url or "oregon-postgres" in url or "dpg-" in url:
+        separator = "&" if "?" in url else "?"
+        url += f"{separator}ssl=require"
     return url
 
 
-engine = create_async_engine(_get_db_url(), echo=False, pool_size=20, max_overflow=10)
+engine = create_async_engine(_get_db_url(), echo=False, pool_size=5, max_overflow=5)
 
 async_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 

@@ -1,3 +1,4 @@
+import asyncio
 import subprocess
 import sys
 from contextlib import asynccontextmanager
@@ -20,9 +21,25 @@ from app.services.vector_store_service import init_collection
 logger = structlog.get_logger()
 
 
+async def _wait_for_db(retries: int = 10, delay: int = 3) -> None:
+    for attempt in range(1, retries + 1):
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            logger.info("db_connected", attempt=attempt)
+            return
+        except Exception as e:
+            logger.warning("db_not_ready", attempt=attempt, error=str(e)[:100])
+            if attempt < retries:
+                await asyncio.sleep(delay)
+    raise RuntimeError("Could not connect to database after retries")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("startup_begin")
+
+    await _wait_for_db()
 
     logger.info("running_migrations")
     subprocess.run(
@@ -30,9 +47,6 @@ async def lifespan(app: FastAPI):
         check=False,
         capture_output=True,
     )
-
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
 
     await init_collection()
 
@@ -43,7 +57,7 @@ async def lifespan(app: FastAPI):
         await rebuild_bm25_index(session)
 
     if not settings.groq_api_key:
-        logger.warning("groq_api_key_not_set", hint="Set GROQ_API_KEY env var. Get free key at https://console.groq.com")
+        logger.warning("groq_api_key_not_set", hint="Set GROQ_API_KEY env var")
 
     logger.info("startup_complete")
     yield
@@ -60,11 +74,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "*",
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
