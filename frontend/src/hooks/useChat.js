@@ -27,8 +27,9 @@ export function useChat() {
     setMessages(data);
   }, []);
 
-  const sendMessage = useCallback(async (query) => {
-    if (!currentSession || isStreaming) return;
+  const sendMessage = useCallback(async (query, sessionOverride) => {
+    const session = sessionOverride || currentSession;
+    if (!session || isStreaming) return;
 
     const userMsg = {
       id: crypto.randomUUID(),
@@ -51,7 +52,7 @@ export function useChat() {
 
     try {
       const response = await fetch(
-        getStreamUrl(currentSession.id),
+        getStreamUrl(session.id),
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

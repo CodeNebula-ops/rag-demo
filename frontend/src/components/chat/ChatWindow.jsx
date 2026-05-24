@@ -20,10 +20,11 @@ export default function ChatWindow({
   }, [messages]);
 
   const handleSend = async (query) => {
-    if (!currentSession) {
-      await onCreateSession();
+    let session = currentSession;
+    if (!session) {
+      session = await onCreateSession();
     }
-    onSendMessage(query);
+    onSendMessage(query, session);
   };
 
   if (!currentSession) {
