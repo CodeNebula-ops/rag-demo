@@ -3,30 +3,24 @@
 @tailwind utilities;
 
 :root {
-  --bg-primary: #FAFAFA;
+  --bg-primary: #F8F9FA;
   --bg-sidebar: #1A1A2E;
   --bg-chat: #FFFFFF;
-  --bg-user-msg: #E8F4FD;
-  --bg-ai-msg: #F5F5F5;
-  --text-primary: #1A1A2E;
+  --text-primary: #111827;
   --text-secondary: #6B7280;
   --text-sidebar: #E2E8F0;
-  --accent: #2563EB;
-  --accent-hover: #1D4ED8;
   --success: #059669;
   --warning: #D97706;
   --danger: #DC2626;
-  --confidence-high: #059669;
-  --confidence-medium: #D97706;
-  --confidence-low: #DC2626;
   --border: #E5E7EB;
 }
 
 body {
   margin: 0;
-  font-family: 'IBM Plex Sans', sans-serif;
+  font-family: 'IBM Plex Sans', -apple-system, system-ui, sans-serif;
   background-color: var(--bg-primary);
   color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
 }
 
 * {
@@ -34,7 +28,7 @@ body {
 }
 
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -42,21 +36,33 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
+  background: #D1D5DB;
   border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9CA3AF;
 }
 
 .prose pre {
   background-color: #1E293B;
   color: #E2E8F0;
-  padding: 1rem;
+  padding: 0.875rem;
   border-radius: 0.5rem;
   overflow-x: auto;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
 }
 
 .prose code {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
+}
+
+.prose p {
+  margin: 0.4em 0;
+}
+
+.prose ul, .prose ol {
+  margin: 0.4em 0;
 }

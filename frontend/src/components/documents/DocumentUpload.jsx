@@ -21,16 +21,16 @@ export default function DocumentUpload({ onUpload, uploading, progress }) {
 
   return (
     <div>
-      <h3 className="text-lg font-display font-semibold mb-3">Upload Document</h3>
+      <h3 className="text-base font-display font-semibold mb-3">Upload Document</h3>
       <div
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
-        className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
+        className={`border-2 border-dashed rounded-xl p-6 md:p-8 text-center cursor-pointer transition-all ${
           dragOver
-            ? 'border-accent bg-blue-50'
-            : 'border-[var(--border)] hover:border-accent/50 hover:bg-gray-50'
+            ? 'border-sidebar/40 bg-sidebar/5'
+            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50/50'
         }`}
       >
         <input
@@ -42,23 +42,23 @@ export default function DocumentUpload({ onUpload, uploading, progress }) {
         />
         {uploading ? (
           <div className="space-y-2">
-            <FileText size={32} className="mx-auto text-accent" />
+            <FileText size={28} className="mx-auto text-sidebar" />
             <p className="text-sm text-[var(--text-secondary)]">Uploading... {progress}%</p>
-            <div className="max-w-xs mx-auto bg-gray-100 rounded-full h-2">
+            <div className="max-w-xs mx-auto bg-gray-100 rounded-full h-1.5">
               <div
-                className="bg-accent rounded-full h-2 transition-all"
+                className="bg-sidebar rounded-full h-1.5 transition-all"
                 style={{ width: `${progress}%` }}
               />
             </div>
           </div>
         ) : (
-          <div className="space-y-2">
-            <Upload size={32} className="mx-auto text-[var(--text-secondary)]" />
+          <div className="space-y-1.5">
+            <Upload size={28} className="mx-auto text-gray-300" />
             <p className="text-sm font-medium text-[var(--text-primary)]">
-              Drop a file here or click to upload
+              Drop a file or click to browse
             </p>
-            <p className="text-xs text-[var(--text-secondary)]">
-              PDF, DOCX, TXT, MD (max 50MB)
+            <p className="text-xs text-gray-400">
+              PDF, DOCX, TXT, MD up to 50MB
             </p>
           </div>
         )}
