@@ -165,12 +165,15 @@ async def _run_ingestion(doc_id: str, file_path: str, filename: str, file_size: 
             logger.info("background_ingestion_complete", doc_id=doc_id, chunks=len(db_chunks))
 
         except Exception as e:
-            logger.error("background_ingestion_failed", doc_id=doc_id, error=str(e))
+            import traceback
+            logger.error("background_ingestion_failed", doc_id=doc_id, error=str(e), tb=traceback.format_exc())
+            await session.rollback()
             try:
-                doc = await session.get(Document, uuid.UUID(doc_id))
-                if doc:
-                    doc.status = "failed"
-                    await session.commit()
+                async with async_session_factory() as err_session:
+                    doc = await err_session.get(Document, uuid.UUID(doc_id))
+                    if doc:
+                        doc.status = "failed"
+                        await err_session.commit()
             except Exception:
                 pass
 
@@ -207,6 +210,12 @@ async def reprocess_document(
     if doc.status not in ("processing", "failed"):
         raise HTTPException(status_code=400, detail="Document is already active")
 
+    if not os.path.exists(doc.storage_path):
+        raise HTTPException(
+            status_code=400,
+            detail="Source file is missing (server was restarted). Please delete and re-upload.",
+        )
+
     doc.status = "processing"
     await session.flush()
 
@@ -228,8 +237,15 @@ async def delete_document(
 
     deactivate_document_vectors(str(document_id))
 
-    doc.status = "archived"
+    storage_path = doc.storage_path
+    await session.delete(doc)
     await session.flush()
+
+    if storage_path:
+        try:
+            os.remove(storage_path)
+        except OSError:
+            pass
 
     await log_event(
         session,
@@ -238,4 +254,4 @@ async def delete_document(
         resource_id=str(document_id),
     )
 
-    return {"status": "archived", "document_id": str(document_id)}
+    return {"status": "deleted", "document_id": str(document_id)}

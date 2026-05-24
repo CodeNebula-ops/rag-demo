@@ -12,7 +12,7 @@ def _get_model():
     global _model
     if _model is None:
         from fastembed import TextEmbedding
-        _model = TextEmbedding(model_name=settings.embedding_model_name)
+        _model = TextEmbedding(model_name=settings.embedding_model_name, cache_dir="/app/.cache/fastembed")
         logger.info("embedding_model_loaded", model=settings.embedding_model_name)
     return _model
 
