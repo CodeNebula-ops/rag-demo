@@ -23,8 +23,15 @@ def get_qdrant_client() -> QdrantClient:
     global _client
     if _client is None:
         if settings.qdrant_api_key:
+            host = settings.qdrant_host.strip()
+            if host.startswith("https://") or host.startswith("http://"):
+                url = host
+            else:
+                url = f"https://{host}"
+            url = url.rstrip("/")
+            logger.info("qdrant_connecting", url=url)
             _client = QdrantClient(
-                url=f"https://{settings.qdrant_host}",
+                url=url,
                 api_key=settings.qdrant_api_key,
                 port=None,
             )
@@ -95,13 +102,16 @@ def search_vectors(
             FieldCondition(key="document_id", match=MatchValue(value=document_filter))
         )
 
-    results = client.search(
-        collection_name=settings.qdrant_collection_name,
-        query_vector=query_vector,
-        limit=top_k,
-        query_filter=Filter(must=must_conditions),
-        with_payload=True,
-    )
+    try:
+        results = client.search(
+            collection_name=settings.qdrant_collection_name,
+            query_vector=query_vector,
+            limit=top_k,
+            query_filter=Filter(must=must_conditions),
+            with_payload=True,
+        )
+    except Exception as e:
+        raise RuntimeError(f"Qdrant search failed (host={settings.qdrant_host}): {e}") from e
 
     return [
         {

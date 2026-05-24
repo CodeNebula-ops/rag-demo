@@ -15,11 +15,16 @@ async def _call_hf_api(texts: list[str]) -> list[list[float]]:
     if settings.hf_api_token:
         headers["Authorization"] = f"Bearer {settings.hf_api_token}"
 
-    async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
-        resp = await client.post(url, json={"inputs": texts, "options": {"wait_for_model": True}}, headers=headers)
-        if resp.status_code != 200:
-            raise RuntimeError(f"HuggingFace API error {resp.status_code}: {resp.text[:200]}")
-        return resp.json()
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
+            resp = await client.post(url, json={"inputs": texts, "options": {"wait_for_model": True}}, headers=headers)
+            if resp.status_code != 200:
+                raise RuntimeError(f"HuggingFace API error {resp.status_code}: {resp.text[:200]}")
+            return resp.json()
+    except httpx.ConnectError as e:
+        raise RuntimeError(f"Cannot connect to HuggingFace API ({url}): {e}") from e
+    except httpx.TimeoutException:
+        raise RuntimeError(f"HuggingFace API request timed out ({url})") from None
 
 
 def _normalize(vectors: list[list[float]]) -> np.ndarray:
