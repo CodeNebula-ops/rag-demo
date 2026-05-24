@@ -1,5 +1,7 @@
 export function formatDate(dateString) {
-  const date = new Date(dateString);
+  let str = dateString;
+  if (str && !str.endsWith('Z') && !str.includes('+')) str += 'Z';
+  const date = new Date(str);
   const now = new Date();
   const diffMs = now - date;
   const diffMins = Math.floor(diffMs / 60000);

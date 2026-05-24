@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { chatApi, getStreamUrl } from '../services/api';
+import { useToast } from '../components/layout/Toast';
 
 export function useChat() {
   const [sessions, setSessions] = useState([]);
@@ -7,6 +8,7 @@ export function useChat() {
   const [messages, setMessages] = useState([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const sessionRef = useRef(null);
+  const toast = useToast();
 
   const loadSessions = useCallback(async () => {
     const { data } = await chatApi.listSessions();
@@ -30,14 +32,18 @@ export function useChat() {
   }, []);
 
   const deleteSession = useCallback(async (sessionId) => {
-    await chatApi.deleteSession(sessionId);
-    if (sessionRef.current?.id === sessionId) {
-      setCurrentSession(null);
-      sessionRef.current = null;
-      setMessages([]);
+    try {
+      await chatApi.deleteSession(sessionId);
+      if (sessionRef.current?.id === sessionId) {
+        setCurrentSession(null);
+        sessionRef.current = null;
+        setMessages([]);
+      }
+      await loadSessions();
+    } catch {
+      toast?.('Failed to delete session', 'error');
     }
-    await loadSessions();
-  }, [loadSessions]);
+  }, [loadSessions, toast]);
 
   const sendMessage = useCallback(async (query, sessionOverride) => {
     const session = sessionOverride || sessionRef.current;
@@ -137,6 +143,7 @@ export function useChat() {
             }
 
             if (data.error) {
+              toast?.(data.error, 'error', 8000);
               setMessages((prev) => {
                 const updated = [...prev];
                 const last = updated[updated.length - 1];
@@ -169,6 +176,7 @@ export function useChat() {
         }
       }
     } catch (err) {
+      toast?.('Failed to get response. Please try again.', 'error');
       setMessages((prev) => {
         const updated = [...prev];
         const last = updated[updated.length - 1];
