@@ -9,10 +9,11 @@ from app.core.language_detector import detect_language
 
 logger = structlog.get_logger()
 
-try:
-    nltk.data.find("tokenizers/punkt_tab")
-except LookupError:
-    nltk.download("punkt_tab", quiet=True)
+for _res in ("punkt_tab", "punkt"):
+    try:
+        nltk.data.find(f"tokenizers/{_res}")
+    except LookupError:
+        nltk.download(_res, quiet=True)
 
 
 def chunk_document(
