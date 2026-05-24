@@ -29,7 +29,6 @@ python-magic==0.4.27
 chardet==5.2.0
 
 # NLP
-nltk==3.8.1
 langdetect==1.0.9
 
 # Utilities

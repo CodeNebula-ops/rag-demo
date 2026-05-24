@@ -14,8 +14,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-ENV NLTK_DATA=/app/nltk_data
-RUN python -c "import nltk; nltk.download('punkt_tab', download_dir='/app/nltk_data', quiet=True); nltk.download('punkt', download_dir='/app/nltk_data', quiet=True)"
 RUN python -c "from fastembed import TextEmbedding; TextEmbedding(model_name='BAAI/bge-small-en-v1.5', cache_dir='/app/.cache/fastembed')"
 
 COPY . .

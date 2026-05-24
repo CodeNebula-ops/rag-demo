@@ -1,6 +1,5 @@
 import re
 
-import nltk
 import structlog
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
@@ -8,12 +7,6 @@ from app.config import settings
 from app.core.language_detector import detect_language
 
 logger = structlog.get_logger()
-
-for _res in ("punkt_tab", "punkt"):
-    try:
-        nltk.data.find(f"tokenizers/{_res}")
-    except LookupError:
-        nltk.download(_res, quiet=True)
 
 
 def chunk_document(
@@ -84,7 +77,5 @@ def _split_into_paragraphs(text: str) -> list[str]:
 
 
 def _split_into_sentences(text: str) -> list[str]:
-    try:
-        return nltk.sent_tokenize(text)
-    except Exception:
-        return [s.strip() for s in text.split(". ") if s.strip()]
+    parts = re.split(r'(?<=[.!?])\s+', text)
+    return [s.strip() for s in parts if s.strip()]

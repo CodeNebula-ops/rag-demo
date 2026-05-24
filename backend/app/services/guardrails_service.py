@@ -69,8 +69,6 @@ def should_skip_llm(reranker_scores: list[float], threshold: float = 0.3) -> boo
 
 
 def _split_sentences(text: str) -> list[str]:
-    import nltk
-    try:
-        return [s.strip() for s in nltk.sent_tokenize(text) if len(s.strip()) > 5]
-    except Exception:
-        return [s.strip() for s in text.split(". ") if len(s.strip()) > 5]
+    import re
+    parts = re.split(r'(?<=[.!?])\s+', text)
+    return [s.strip() for s in parts if len(s.strip()) > 5]
