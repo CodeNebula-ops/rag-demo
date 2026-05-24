@@ -34,5 +34,12 @@ async def health_check(session: AsyncSession = Depends(get_session)):
     except Exception:
         checks["llm"] = "error"
 
-    overall = "ok" if all(v == "ok" for v in checks.values()) else "degraded"
+    try:
+        from app.services.embedding_service import embed_query
+        emb = await embed_query("test")
+        checks["embeddings"] = f"ok (dim={len(emb)})"
+    except Exception as e:
+        checks["embeddings"] = f"error: {str(e)[:100]}"
+
+    overall = "ok" if all(str(v).startswith("ok") for v in checks.values()) else "degraded"
     return {"status": overall, **checks}

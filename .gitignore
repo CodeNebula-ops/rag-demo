@@ -9,4 +9,5 @@ dist/
 uploads/*
 !uploads/.gitkeep
 model_cache/
+.cache/
 *.pkl
