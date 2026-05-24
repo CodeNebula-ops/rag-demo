@@ -1,14 +1,15 @@
 import os
 import uuid
+import traceback
 from pathlib import Path
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from sqlalchemy import select, delete as sa_delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.core.database import get_session, async_session_factory
+from app.core.database import get_session
 from app.models.document import Document, DocumentChunk
 from app.schemas.document_schema import DocumentDetailResponse, DocumentResponse
 from app.services.audit_service import log_event
@@ -22,7 +23,6 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 @router.post("", response_model=DocumentResponse)
 async def upload_document(
     file: UploadFile,
-    background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_session),
 ):
     validate_file_extension(file.filename)
@@ -55,126 +55,91 @@ async def upload_document(
     )
     session.add(doc)
     await session.flush()
+
+    try:
+        await _process_document(doc, storage_path, file.filename, session)
+    except Exception as e:
+        logger.error("ingestion_failed", doc_id=str(doc.id), error=str(e), tb=traceback.format_exc())
+        doc.status = "failed"
+        await session.flush()
+        raise HTTPException(status_code=422, detail=f"Processing failed: {str(e)}")
+
     await session.refresh(doc)
-
-    background_tasks.add_task(_run_ingestion, str(doc.id), storage_path, file.filename)
-
     return doc
 
 
-async def _run_ingestion(doc_id: str, file_path: str, filename: str):
-    import traceback
+async def _process_document(doc: Document, file_path: str, filename: str, session: AsyncSession):
     from app.services.ingestion_service import _extract_text
     from app.core.text_preprocessor import normalize_text
     from app.services.chunking_service import chunk_document
     from app.services.embedding_service import embed_texts
     from app.services.vector_store_service import upsert_vectors
     from app.services.retrieval_service import add_to_bm25_index
-    from sqlalchemy import delete as sa_delete
 
-    async with async_session_factory() as session:
-        try:
-            doc = await session.get(Document, uuid.UUID(doc_id))
-            if not doc:
-                logger.error("ingestion_doc_not_found", doc_id=doc_id)
-                return
+    logger.info("ingestion_start", doc_id=str(doc.id))
 
-            await session.execute(
-                sa_delete(DocumentChunk).where(DocumentChunk.document_id == doc.id)
-            )
+    ext = Path(filename).suffix.lower()
+    raw_text = _extract_text(file_path, ext)
+    cleaned_text = normalize_text(raw_text)
 
-            if not Path(file_path).exists():
-                logger.error("ingestion_file_missing", doc_id=doc_id, path=file_path)
-                doc.status = "failed"
-                await session.commit()
-                return
+    if not cleaned_text or len(cleaned_text.strip()) < 10:
+        raise ValueError("No text content extracted from document")
 
-            logger.info("ingestion_extracting", doc_id=doc_id)
-            ext = Path(filename).suffix.lower()
-            raw_text = _extract_text(file_path, ext)
-            cleaned_text = normalize_text(raw_text)
+    logger.info("ingestion_chunking", doc_id=str(doc.id), text_len=len(cleaned_text))
+    chunks = chunk_document(cleaned_text, doc.title)
+    if not chunks:
+        raise ValueError("No chunks generated from document")
 
-            if not cleaned_text or len(cleaned_text.strip()) < 10:
-                logger.error("ingestion_no_text", doc_id=doc_id)
-                doc.status = "failed"
-                await session.commit()
-                return
+    logger.info("ingestion_embedding", doc_id=str(doc.id), chunks=len(chunks))
+    chunk_texts = [c["chunk_text"] for c in chunks]
+    embeddings = await embed_texts(chunk_texts)
 
-            logger.info("ingestion_chunking", doc_id=doc_id, text_len=len(cleaned_text))
-            chunks = chunk_document(cleaned_text, doc.title)
-            if not chunks:
-                logger.error("ingestion_no_chunks", doc_id=doc_id)
-                doc.status = "failed"
-                await session.commit()
-                return
+    logger.info("ingestion_upserting", doc_id=str(doc.id))
+    payloads = []
+    db_chunks = []
+    for chunk_data in chunks:
+        chunk_id = uuid.uuid4()
+        payloads.append({
+            "document_id": str(doc.id),
+            "document_title": doc.title,
+            "chunk_text": chunk_data["chunk_text"],
+            "section_path": chunk_data.get("section_path", ""),
+            "chunk_index": chunk_data["chunk_index"],
+            "language": chunk_data.get("language", "en"),
+            "is_active": True,
+        })
+        db_chunks.append(DocumentChunk(
+            id=chunk_id,
+            document_id=doc.id,
+            chunk_index=chunk_data["chunk_index"],
+            chunk_text=chunk_data["chunk_text"],
+            section_path=chunk_data.get("section_path"),
+            chunk_level=chunk_data.get("chunk_level", "paragraph"),
+            token_count=chunk_data.get("token_count", 0),
+            language=chunk_data.get("language", "en"),
+        ))
 
-            logger.info("ingestion_embedding", doc_id=doc_id, chunks=len(chunks))
-            chunk_texts = [c["chunk_text"] for c in chunks]
-            embeddings = await embed_texts(chunk_texts)
+    point_ids = upsert_vectors(embeddings.tolist(), payloads)
 
-            logger.info("ingestion_upserting", doc_id=doc_id, emb_shape=str(embeddings.shape))
-            payloads = []
-            db_chunks = []
-            for chunk_data in chunks:
-                chunk_id = uuid.uuid4()
-                payloads.append({
-                    "document_id": doc_id,
-                    "document_title": doc.title,
-                    "chunk_text": chunk_data["chunk_text"],
-                    "section_path": chunk_data.get("section_path", ""),
-                    "chunk_index": chunk_data["chunk_index"],
-                    "language": chunk_data.get("language", "en"),
-                    "is_active": True,
-                })
-                db_chunks.append(DocumentChunk(
-                    id=chunk_id,
-                    document_id=doc.id,
-                    chunk_index=chunk_data["chunk_index"],
-                    chunk_text=chunk_data["chunk_text"],
-                    section_path=chunk_data.get("section_path"),
-                    chunk_level=chunk_data.get("chunk_level", "paragraph"),
-                    token_count=chunk_data.get("token_count", 0),
-                    language=chunk_data.get("language", "en"),
-                ))
+    for i, db_chunk in enumerate(db_chunks):
+        db_chunk.qdrant_point_id = point_ids[i]
 
-            point_ids = upsert_vectors(embeddings.tolist(), payloads)
+    session.add_all(db_chunks)
+    doc.total_chunks = len(db_chunks)
+    doc.status = "active"
 
-            for i, db_chunk in enumerate(db_chunks):
-                db_chunk.qdrant_point_id = point_ids[i]
+    add_to_bm25_index(chunk_texts, point_ids)
 
-            session.add_all(db_chunks)
-            doc.total_chunks = len(db_chunks)
-            doc.status = "active"
+    await log_event(
+        session,
+        event_type="DOCUMENT_UPLOADED",
+        resource_type="document",
+        resource_id=str(doc.id),
+        detail={"filename": filename, "chunks": len(db_chunks)},
+    )
 
-            add_to_bm25_index(chunk_texts, point_ids)
-
-            await log_event(
-                session,
-                event_type="DOCUMENT_UPLOADED",
-                resource_type="document",
-                resource_id=doc_id,
-                detail={"filename": filename, "chunks": len(db_chunks)},
-            )
-
-            await session.commit()
-            logger.info("ingestion_complete", doc_id=doc_id, chunks=len(db_chunks))
-
-        except Exception as e:
-            logger.error("ingestion_failed", doc_id=doc_id, error=str(e), tb=traceback.format_exc())
-            try:
-                await session.rollback()
-            except Exception:
-                pass
-
-    try:
-        async with async_session_factory() as err_session:
-            doc = await err_session.get(Document, uuid.UUID(doc_id))
-            if doc and doc.status == "processing":
-                doc.status = "failed"
-                await err_session.commit()
-                logger.info("ingestion_marked_failed", doc_id=doc_id)
-    except Exception:
-        pass
+    await session.flush()
+    logger.info("ingestion_complete", doc_id=str(doc.id), chunks=len(db_chunks))
 
 
 @router.get("", response_model=list[DocumentResponse])
@@ -199,7 +164,6 @@ async def get_document(
 @router.post("/{document_id}/reprocess")
 async def reprocess_document(
     document_id: uuid.UUID,
-    background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_session),
 ):
     doc = await session.get(Document, document_id)
@@ -215,12 +179,19 @@ async def reprocess_document(
             detail="Source file is missing (server was restarted). Please delete and re-upload.",
         )
 
-    doc.status = "processing"
-    await session.flush()
+    await session.execute(
+        sa_delete(DocumentChunk).where(DocumentChunk.document_id == doc.id)
+    )
 
-    background_tasks.add_task(_run_ingestion, str(doc.id), doc.storage_path, doc.filename)
+    try:
+        await _process_document(doc, doc.storage_path, doc.filename, session)
+    except Exception as e:
+        logger.error("reprocess_failed", doc_id=str(doc.id), error=str(e))
+        doc.status = "failed"
+        await session.flush()
+        raise HTTPException(status_code=422, detail=f"Processing failed: {str(e)}")
 
-    return {"status": "reprocessing", "document_id": str(document_id)}
+    return {"status": "active", "document_id": str(document_id), "chunks": doc.total_chunks}
 
 
 @router.delete("/{document_id}")

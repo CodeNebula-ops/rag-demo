@@ -42,12 +42,14 @@ export default function DocumentUpload({ onUpload, uploading, progress }) {
         />
         {uploading ? (
           <div className="space-y-2">
-            <FileText size={28} className="mx-auto text-sidebar" />
-            <p className="text-sm text-[var(--text-secondary)]">Uploading... {progress}%</p>
+            <FileText size={28} className="mx-auto text-sidebar animate-pulse" />
+            <p className="text-sm text-[var(--text-secondary)]">
+              {progress < 100 ? `Uploading... ${progress}%` : 'Processing document...'}
+            </p>
             <div className="max-w-xs mx-auto bg-gray-100 rounded-full h-1.5">
               <div
                 className="bg-sidebar rounded-full h-1.5 transition-all"
-                style={{ width: `${progress}%` }}
+                style={{ width: progress < 100 ? `${progress}%` : '100%' }}
               />
             </div>
           </div>

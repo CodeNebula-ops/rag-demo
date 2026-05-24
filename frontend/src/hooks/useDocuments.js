@@ -21,35 +21,16 @@ export function useDocuments() {
     setUploading(true);
     setUploadProgress(0);
     try {
-      const { data } = await documentApi.upload(file, (event) => {
+      await documentApi.upload(file, (event) => {
         const pct = Math.round((event.loaded * 100) / event.total);
         setUploadProgress(pct);
       });
-
-      toast?.('Document uploaded, processing...', 'success');
-
-      const pollInterval = setInterval(async () => {
-        try {
-          const { data: doc } = await documentApi.get(data.id);
-          if (doc.status === 'active') {
-            clearInterval(pollInterval);
-            toast?.('Document processed successfully', 'success');
-            await loadDocuments();
-          } else if (doc.status === 'failed') {
-            clearInterval(pollInterval);
-            toast?.('Document processing failed', 'error');
-            await loadDocuments();
-          }
-        } catch {
-          clearInterval(pollInterval);
-        }
-      }, 3000);
-
+      toast?.('Document processed successfully', 'success');
       await loadDocuments();
-      return data;
     } catch (err) {
       const msg = err.response?.data?.detail || 'Upload failed';
-      toast?.(msg, 'error');
+      toast?.(msg, 'error', 8000);
+      await loadDocuments();
     } finally {
       setUploading(false);
       setUploadProgress(0);
@@ -68,29 +49,13 @@ export function useDocuments() {
 
   const reprocessDocument = useCallback(async (id) => {
     try {
-      await documentApi.reprocess(id);
-      toast?.('Reprocessing document...', 'info');
+      const { data } = await documentApi.reprocess(id);
+      toast?.(`Document processed: ${data.chunks} chunks`, 'success');
       await loadDocuments();
-
-      const pollInterval = setInterval(async () => {
-        try {
-          const { data: doc } = await documentApi.get(id);
-          if (doc.status === 'active') {
-            clearInterval(pollInterval);
-            toast?.('Document processed successfully', 'success');
-            await loadDocuments();
-          } else if (doc.status === 'failed') {
-            clearInterval(pollInterval);
-            toast?.('Document processing failed', 'error');
-            await loadDocuments();
-          }
-        } catch {
-          clearInterval(pollInterval);
-        }
-      }, 3000);
     } catch (err) {
       const msg = err.response?.data?.detail || 'Reprocess failed';
-      toast?.(msg, 'error');
+      toast?.(msg, 'error', 8000);
+      await loadDocuments();
     }
   }, [loadDocuments, toast]);
 

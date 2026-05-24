@@ -23,12 +23,13 @@ export const documentApi = {
     return api.post('/documents', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       onUploadProgress: onProgress,
+      timeout: 120000,
     });
   },
+  reprocess: (id) => api.post(`/documents/${id}/reprocess`, null, { timeout: 120000 }),
   list: () => api.get('/documents'),
   get: (id) => api.get(`/documents/${id}`),
   delete: (id) => api.delete(`/documents/${id}`),
-  reprocess: (id) => api.post(`/documents/${id}/reprocess`),
 };
 
 export const analyticsApi = {
