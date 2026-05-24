@@ -125,6 +125,21 @@ export function useChat() {
               });
             }
 
+            if (data.error) {
+              setMessages((prev) => {
+                const updated = [...prev];
+                const last = updated[updated.length - 1];
+                if (last && last.id === 'streaming') {
+                  updated[updated.length - 1] = {
+                    ...last,
+                    id: crypto.randomUUID(),
+                    content: `Something went wrong: ${data.error}`,
+                  };
+                }
+                return updated;
+              });
+            }
+
             if (data.message_id) {
               setMessages((prev) => {
                 const updated = [...prev];

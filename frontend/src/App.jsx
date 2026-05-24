@@ -83,6 +83,7 @@ export default function App() {
                 documents={docs.documents}
                 onDelete={docs.deleteDocument}
                 onRefresh={docs.loadDocuments}
+                onReprocess={docs.reprocessDocument}
               />
             </div>
           )}

@@ -79,6 +79,20 @@ async def _run_ingestion(doc_id: str, file_path: str, filename: str, file_size: 
             from pathlib import Path
             import uuid as uuid_mod
 
+            from app.models.document import DocumentChunk
+            from sqlalchemy import delete as sa_delete
+
+            existing = await session.execute(
+                select(DocumentChunk).where(DocumentChunk.document_id == doc.id)
+            )
+            old_chunks = existing.scalars().all()
+            if old_chunks:
+                deactivate_document_vectors(doc_id)
+                await session.execute(
+                    sa_delete(DocumentChunk).where(DocumentChunk.document_id == doc.id)
+                )
+                await session.flush()
+
             ext = Path(filename).suffix.lower()
             raw_text = _extract_text(file_path, ext)
             cleaned_text = normalize_text(raw_text)
@@ -98,7 +112,6 @@ async def _run_ingestion(doc_id: str, file_path: str, filename: str, file_size: 
             embeddings = await embed_texts(chunk_texts)
 
             payloads = []
-            from app.models.document import DocumentChunk
             db_chunks = []
 
             for i, chunk_data in enumerate(chunks):
@@ -173,6 +186,29 @@ async def get_document(
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     return doc
+
+
+@router.post("/{document_id}/reprocess")
+async def reprocess_document(
+    document_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
+    session: AsyncSession = Depends(get_session),
+):
+    doc = await session.get(Document, document_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if doc.status not in ("processing", "failed"):
+        raise HTTPException(status_code=400, detail="Document is already active")
+
+    doc.status = "processing"
+    await session.flush()
+
+    background_tasks.add_task(
+        _run_ingestion, str(doc.id), doc.storage_path, doc.filename, doc.file_size_bytes
+    )
+
+    return {"status": "reprocessing", "document_id": str(document_id)}
 
 
 @router.delete("/{document_id}")

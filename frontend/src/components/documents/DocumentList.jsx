@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Trash2, RefreshCw, FileText } from 'lucide-react';
+import { Trash2, RefreshCw, FileText, RotateCcw } from 'lucide-react';
 import { formatDate, formatFileSize } from '../../utils/formatters';
 
 const statusStyles = {
@@ -9,7 +9,7 @@ const statusStyles = {
   failed: 'bg-red-50 text-red-600',
 };
 
-export default function DocumentList({ documents, onDelete, onRefresh }) {
+export default function DocumentList({ documents, onDelete, onRefresh, onReprocess }) {
   const [confirmId, setConfirmId] = useState(null);
 
   const handleDelete = async (id) => {
@@ -67,7 +67,16 @@ export default function DocumentList({ documents, onDelete, onRefresh }) {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-[var(--text-secondary)] text-xs">{formatDate(doc.created_at)}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 flex items-center gap-1">
+                      {(doc.status === 'processing' || doc.status === 'failed') && (
+                        <button
+                          onClick={() => onReprocess(doc.id)}
+                          className="p-1 rounded text-amber-400 hover:text-amber-600 transition-colors"
+                          title="Reprocess"
+                        >
+                          <RotateCcw size={14} />
+                        </button>
+                      )}
                       <button
                         onClick={() => handleDelete(doc.id)}
                         className={`p-1 rounded transition-colors ${
@@ -103,6 +112,14 @@ export default function DocumentList({ documents, onDelete, onRefresh }) {
                     <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium ${statusStyles[doc.status] || ''}`}>
                       {doc.status}
                     </span>
+                    {(doc.status === 'processing' || doc.status === 'failed') && (
+                      <button
+                        onClick={() => onReprocess(doc.id)}
+                        className="p-1 rounded text-amber-400"
+                      >
+                        <RotateCcw size={14} />
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDelete(doc.id)}
                       className={`p-1 rounded ${

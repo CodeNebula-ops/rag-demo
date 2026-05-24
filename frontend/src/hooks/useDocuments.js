@@ -45,6 +45,23 @@ export function useDocuments() {
     await loadDocuments();
   }, [loadDocuments]);
 
+  const reprocessDocument = useCallback(async (id) => {
+    await documentApi.reprocess(id);
+    await loadDocuments();
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const { data: doc } = await documentApi.get(id);
+        if (doc.status === 'active' || doc.status === 'failed') {
+          clearInterval(pollInterval);
+          await loadDocuments();
+        }
+      } catch {
+        clearInterval(pollInterval);
+      }
+    }, 2000);
+  }, [loadDocuments]);
+
   return {
     documents,
     uploading,
@@ -52,5 +69,6 @@ export function useDocuments() {
     loadDocuments,
     uploadDocument,
     deleteDocument,
+    reprocessDocument,
   };
 }

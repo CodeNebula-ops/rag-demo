@@ -27,6 +27,7 @@ export const documentApi = {
   list: () => api.get('/documents'),
   get: (id) => api.get(`/documents/${id}`),
   delete: (id) => api.delete(`/documents/${id}`),
+  reprocess: (id) => api.post(`/documents/${id}/reprocess`),
 };
 
 export const analyticsApi = {

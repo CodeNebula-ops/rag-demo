@@ -56,10 +56,17 @@ async def send_message(
         raise HTTPException(status_code=404, detail="Session not found")
 
     async def event_generator():
-        async for event in process_query(body.query, session_id, db):
-            evt_type = event["event"]
-            data = json.dumps(event["data"])
-            yield {"event": evt_type, "data": data}
+        try:
+            async for event in process_query(body.query, session_id, db):
+                evt_type = event["event"]
+                data = json.dumps(event["data"])
+                yield {"event": evt_type, "data": data}
+        except Exception as e:
+            logger.error("chat_stream_error", error=str(e), session_id=str(session_id))
+            yield {
+                "event": "error",
+                "data": json.dumps({"error": str(e)}),
+            }
 
     return EventSourceResponse(event_generator())
 
