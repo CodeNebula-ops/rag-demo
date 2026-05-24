@@ -1,22 +1,22 @@
 import numpy as np
 import structlog
 
-from app.services.embedding_service import embed_texts, embed_query
-
 logger = structlog.get_logger()
 
 
-def check_faithfulness(answer: str, chunks: list[dict]) -> dict:
+async def check_faithfulness(answer: str, chunks: list[dict]) -> dict:
     if not answer or not chunks:
         return {"faithful_ratio": 0.0, "unfaithful_sentences": []}
+
+    from app.services.embedding_service import embed_texts
 
     sentences = _split_sentences(answer)
     if not sentences:
         return {"faithful_ratio": 0.0, "unfaithful_sentences": []}
 
     chunk_texts = [c["chunk_text"] for c in chunks]
-    chunk_embeddings = embed_texts(chunk_texts)
-    sentence_embeddings = embed_texts(sentences)
+    chunk_embeddings = await embed_texts(chunk_texts)
+    sentence_embeddings = await embed_texts(sentences)
 
     faithful_count = 0
     unfaithful = []

@@ -128,7 +128,7 @@ async def retrieve(query: str, top_n: int | None = None) -> list[dict]:
     top_n = top_n or settings.rerank_top_n
     normalized_query = normalize_text(query)
 
-    query_embedding = embed_query(normalized_query)
+    query_embedding = await embed_query(normalized_query)
     dense_results = search_vectors(query_embedding.tolist(), top_k=settings.retrieval_top_k)
 
     sparse_results = _bm25_search(normalized_query, top_k=settings.retrieval_top_k)
@@ -138,7 +138,7 @@ async def retrieve(query: str, top_n: int | None = None) -> list[dict]:
     if not fused:
         return []
 
-    reranked = rerank(normalized_query, fused, top_n=top_n)
+    reranked = await rerank(normalized_query, fused, top_n=top_n)
 
     logger.info(
         "retrieval_complete",

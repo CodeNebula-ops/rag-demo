@@ -1,35 +1,27 @@
+import numpy as np
 import structlog
-from sentence_transformers import CrossEncoder
 
 from app.config import settings
+from app.services.embedding_service import embed_query, embed_texts
 
 logger = structlog.get_logger()
 
-_reranker: CrossEncoder | None = None
-
 
 def load_reranker_model() -> None:
-    global _reranker
-    logger.info("loading_reranker_model", model=settings.reranker_model_name)
-    _reranker = CrossEncoder(settings.reranker_model_name)
-    logger.info("reranker_model_loaded")
+    logger.info("reranker_service_ready", backend="embedding_similarity")
 
 
-def get_reranker() -> CrossEncoder:
-    if _reranker is None:
-        load_reranker_model()
-    return _reranker
-
-
-def rerank(query: str, documents: list[dict], top_n: int | None = None) -> list[dict]:
+async def rerank(query: str, documents: list[dict], top_n: int | None = None) -> list[dict]:
     if not documents:
         return []
 
     top_n = top_n or settings.rerank_top_n
-    reranker = get_reranker()
 
-    pairs = [(query, doc["chunk_text"]) for doc in documents]
-    scores = reranker.predict(pairs)
+    query_emb = await embed_query(query)
+    doc_texts = [doc["chunk_text"] for doc in documents]
+    doc_embs = await embed_texts(doc_texts)
+
+    scores = np.dot(doc_embs, query_emb)
 
     for i, doc in enumerate(documents):
         doc["reranker_score"] = float(scores[i])

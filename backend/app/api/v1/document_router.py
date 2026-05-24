@@ -95,7 +95,7 @@ async def _run_ingestion(doc_id: str, file_path: str, filename: str, file_size: 
                 return
 
             chunk_texts = [c["chunk_text"] for c in chunks]
-            embeddings = embed_texts(chunk_texts)
+            embeddings = await embed_texts(chunk_texts)
 
             payloads = []
             from app.models.document import DocumentChunk

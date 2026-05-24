@@ -97,7 +97,7 @@ async def process_query(
     if not answer.strip():
         answer = NO_INFO_RESPONSE
 
-    faithfulness = check_faithfulness(answer, retrieved_chunks)
+    faithfulness = await check_faithfulness(answer, retrieved_chunks)
     confidence = compute_confidence(reranker_scores, faithfulness["faithful_ratio"])
 
     citations = extract_citations(answer, retrieved_chunks)

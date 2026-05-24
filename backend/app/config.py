@@ -16,6 +16,7 @@ class Settings(BaseSettings):
 
     embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
     reranker_model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    hf_api_token: str = ""
 
     retrieval_top_k: int = 20
     rerank_top_n: int = 5
