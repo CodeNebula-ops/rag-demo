@@ -1,30 +1,47 @@
-# AI Knowledge Base — Production-Grade RAG System
+# Retrion — Production-Grade RAG System
 
-A Dockerized RAG (Retrieval-Augmented Generation) system with zero-hallucination guardrails. Upload documents, ask questions, and get grounded answers with source citations and confidence scores.
+A production RAG (Retrieval-Augmented Generation) system with a 7-stage pipeline, hallucination guardrails, and source citations. Upload documents, ask questions, get grounded answers.
 
-## Architecture
+## Pipeline Architecture
 
-- **LLM**: Groq API (free, ultra-fast — Llama 3.1 8B)
-- **Embeddings**: sentence-transformers/all-MiniLM-L6-v2 (384-dim)
-- **Reranker**: cross-encoder/ms-marco-MiniLM-L-6-v2
-- **Vector Store**: Qdrant (local Docker or Qdrant Cloud free tier)
+```
+Any data in → cited, grounded, verified answers out
+```
+
+| Stage | What it does | Implementation |
+|-------|-------------|----------------|
+| **01 Ingestion** | OCR, layout-aware parsing, semantic chunking, hybrid indexing | PyMuPDF, heading detection, hierarchical chunking, BM25 + Qdrant |
+| **02 Query Understanding** | Rewrite, expansion, intent detection, routing | Groq LLM query analysis, pronoun resolution, term expansion |
+| **03 Retrieval** | BM25 + dense vector, metadata filtering | Hybrid search, Reciprocal Rank Fusion (RRF), top-k filtering |
+| **04 Post-Retrieval** | Reranking, compression, deduplication, context ordering | Embedding similarity rerank, semantic dedup, intent-based ordering |
+| **05 Generation** | Grounded prompting, citation enforcement | Strict system prompt, low temperature, mandatory [Source:] format |
+| **06 Validation** | Faithfulness check, confidence scoring, abstention | Embedding-based claim verification, hard skip threshold |
+| **07 Operations** | Observability, feedback loop, semantic cache | Structured logging, audit trail, thumbs up/down, query cache |
+
+## Tech Stack
+
+- **LLM**: Groq API (Llama 3.1 8B, free tier)
+- **Embeddings**: BAAI/bge-small-en-v1.5 (384-dim, local ONNX via fastembed)
+- **Vector Store**: Qdrant Cloud (free 1GB)
 - **Database**: PostgreSQL 16
 - **Backend**: Python FastAPI (async)
 - **Frontend**: React 18 + Vite + TailwindCSS
-- **Retrieval**: Hybrid dense + sparse (BM25) + RRF fusion + cross-encoder reranking
 
-## Hallucination Prevention (10 layers)
+## Hallucination Prevention
 
-1. Strict system prompt constraining answers to provided context
+1. Strict grounded system prompt — answers only from provided context
 2. Low temperature (0.1) for deterministic outputs
-3. Empty retrieval guard — skips LLM if no relevant docs found
-4. Post-generation faithfulness check via embedding similarity
-5. Confidence scoring (retrieval quality + faithfulness ratio)
-6. Mandatory citation validation
-7. Visual confidence indicators on every message
-8. Human feedback (thumbs up/down) logging
-9. Section breadcrumbs prepended to every chunk
-10. Max token limit (512) to prevent rambling
+3. Query understanding — rewrites ambiguous queries before retrieval
+4. Hard abstention — skips LLM entirely if all retrieval scores < 0.3
+5. Post-generation faithfulness check via embedding similarity
+6. Confidence scoring (retrieval quality + faithfulness ratio)
+7. Mandatory citation validation with [Source: doc, section] format
+8. Visual confidence indicators (high/medium/low) on every message
+9. Unfaithful answer warnings appended automatically
+10. Semantic cache — consistent answers for similar queries
+11. Human feedback (thumbs up/down) logging for continuous improvement
+12. Section breadcrumbs prepended to every chunk for traceability
+13. Max token limit (512) to prevent rambling
 
 ## Quick Start (Local with Docker)
 
@@ -44,8 +61,8 @@ Open http://localhost:3000 once services are ready.
 
 ### Hardware Requirements (Local)
 
-- **Minimum**: 8GB RAM, 4-core CPU
-- **Storage**: ~3GB for Docker images + documents
+- **Minimum**: 4GB RAM, 2-core CPU
+- **Storage**: ~2GB for Docker images + documents
 
 ---
 
@@ -53,9 +70,9 @@ Open http://localhost:3000 once services are ready.
 
 ### Prerequisites
 
-You need free accounts on:
+Free accounts on:
 1. **Groq** — https://console.groq.com (API key for LLM)
-2. **Qdrant Cloud** — https://cloud.qdrant.io (free 1GB cluster for vector storage)
+2. **Qdrant Cloud** — https://cloud.qdrant.io (free 1GB cluster)
 3. **Render** — https://render.com (hosting)
 
 ### Step-by-step
@@ -82,35 +99,39 @@ You need free accounts on:
 **Option B: Manual setup**
 
 1. **PostgreSQL**: Create a free PostgreSQL database on Render
-2. **Backend**: Create a Web Service pointing to the `backend/` directory
+2. **Backend**: Create a Web Service
    - Runtime: Docker
    - Set environment variables:
      - `DATABASE_URL` = (from Render PostgreSQL)
      - `GROQ_API_KEY` = your key
      - `QDRANT_HOST` = your Qdrant Cloud URL
      - `QDRANT_API_KEY` = your Qdrant Cloud key
-     - `GROQ_MODEL_NAME` = `llama-3.1-8b-instant`
-3. **Frontend**: Create a Static Site pointing to the `frontend/` directory
-   - Build command: `npm ci && npm run build`
-   - Publish directory: `dist`
-   - Add env var: `VITE_API_URL` = `https://your-backend.onrender.com/api/v1`
+     - `EMBEDDING_MODEL_NAME` = `BAAI/bge-small-en-v1.5`
+3. **Frontend**: Create a Static Site
+   - Build command: `cd frontend && npm ci && npm run build`
+   - Publish directory: `frontend/dist`
    - Add rewrite rule: `/api/*` → `https://your-backend.onrender.com/api/*`
 
 ---
 
-## API Documentation
+## API Endpoints
 
 Once running, visit http://localhost:8000/docs for interactive Swagger UI.
 
-### Key Endpoints
-
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/v1/health` | GET | Service health checks |
+| `/api/v1/health` | GET | Service health checks (DB, Qdrant, LLM, embeddings) |
 | `/api/v1/chat/sessions` | POST | Create chat session |
+| `/api/v1/chat/sessions` | GET | List recent sessions |
 | `/api/v1/chat/sessions/{id}/messages` | POST | Send message (SSE stream) |
+| `/api/v1/chat/sessions/{id}` | DELETE | Delete session |
+| `/api/v1/chat/sessions/{id}/history` | GET | Get session history |
+| `/api/v1/chat/messages/{id}/feedback` | POST | Submit thumbs up/down |
 | `/api/v1/documents` | POST | Upload document |
 | `/api/v1/documents` | GET | List documents |
+| `/api/v1/documents/{id}` | GET | Get document details |
+| `/api/v1/documents/{id}` | DELETE | Delete document |
+| `/api/v1/documents/{id}/reprocess` | POST | Reprocess failed document |
 | `/api/v1/analytics/usage` | GET | Usage statistics |
 | `/api/v1/analytics/content-gaps` | GET | Low-confidence queries |
 
@@ -132,4 +153,4 @@ npm run dev
 
 ## Supported File Types
 
-PDF (.pdf), Word (.docx, .doc), Text (.txt), Markdown (.md)
+PDF (.pdf), Word (.docx, .doc), Text (.txt), Markdown (.md) — up to 50MB
